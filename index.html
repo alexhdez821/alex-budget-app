@@ -92,7 +92,7 @@
             align-items: center;
         }
 
-        .edit-budgets-btn {
+        .edit-budgets-btn, .manage-categories-btn {
             background: #667eea;
             color: white;
             border: none;
@@ -100,6 +100,7 @@
             border-radius: 6px;
             font-size: 12px;
             cursor: pointer;
+            margin-left: 5px;
         }
 
         .budget-item {
@@ -815,6 +816,35 @@
             cursor: pointer;
             margin-left: 10px;
         }
+
+        .category-list {
+            margin-top: 15px;
+        }
+
+        .category-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .category-list-item-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .delete-category-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -908,7 +938,10 @@
         <div class="section">
             <div class="section-title">
                 Budget Overview
-                <button class="edit-budgets-btn" onclick="openBudgetModal()">Edit Budgets</button>
+                <div>
+                    <button class="manage-categories-btn" onclick="openManageCategoriesModal()">Manage Categories</button>
+                    <button class="edit-budgets-btn" onclick="openBudgetModal()">Edit Budgets</button>
+                </div>
             </div>
             
             <div class="summary-total">
@@ -968,12 +1001,7 @@
             <div class="input-group">
                 <label>Category</label>
                 <div class="category-buttons" id="category-buttons">
-                    <button type="button" class="category-btn" data-category="Paycheck">💰 Paycheck</button>
-                    <button type="button" class="category-btn" data-category="Subscriptions">Subscriptions</button>
-                    <button type="button" class="category-btn" data-category="Transportation">Transportation</button>
-                    <button type="button" class="category-btn" data-category="Car Payment">Car Payment</button>
-                    <button type="button" class="category-btn" data-category="Food & Hygiene">Food & Hygiene</button>
-                    <button type="button" class="category-btn" data-category="Free Money">Free Money</button>
+                    <!-- Categories will be dynamically populated here -->
                 </div>
             </div>
 
@@ -984,14 +1012,8 @@
         <div class="section">
             <div class="section-title">Transactions</div>
             
-            <div class="filter-tabs">
-                <button class="filter-tab active" onclick="filterCategory('all')">All</button>
-                <button class="filter-tab" onclick="filterCategory('Paycheck')">💰 Paycheck</button>
-                <button class="filter-tab" onclick="filterCategory('Subscriptions')">Subscriptions</button>
-                <button class="filter-tab" onclick="filterCategory('Transportation')">Transportation</button>
-                <button class="filter-tab" onclick="filterCategory('Car Payment')">Car Payment</button>
-                <button class="filter-tab" onclick="filterCategory('Food & Hygiene')">Food & Hygiene</button>
-                <button class="filter-tab" onclick="filterCategory('Free Money')">Free Money</button>
+            <div class="filter-tabs" id="filter-tabs">
+                <!-- Filter tabs will be dynamically populated here -->
             </div>
 
             <div id="transaction-list"></div>
@@ -1120,6 +1142,31 @@
         </div>
     </div>
 
+    <!-- Manage Categories Modal -->
+    <div class="modal" id="manage-categories-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Manage Budget Categories</div>
+                <button class="close-btn" onclick="closeManageCategoriesModal()">&times;</button>
+            </div>
+            
+            <p style="font-size: 13px; color: #666; margin-bottom: 20px;">
+                Add, edit, or remove budget categories. Note: Paycheck and Free Money are system categories.
+            </p>
+
+            <div class="input-group">
+                <label for="new-category-name">New Category Name</label>
+                <input type="text" id="new-category-name" placeholder="e.g., Entertainment">
+            </div>
+
+            <button class="primary" onclick="addNewCategory()">Add Category</button>
+
+            <div class="category-list" id="category-list">
+                <!-- Categories will be populated here -->
+            </div>
+        </div>
+    </div>
+
     <!-- Budget Edit Modal -->
     <div class="modal" id="budget-modal">
         <div class="modal-content" style="max-width: 650px;">
@@ -1219,24 +1266,40 @@
     </div>
 
     <script>
-        // Data structure
-        let budgets = JSON.parse(localStorage.getItem('budgets')) || {
-            'Paycheck': 0,
-            'Subscriptions': 159,
-            'Transportation': 455,
-            'Car Payment': 384,
-            'Food & Hygiene': 281,
-            'Free Money': 221
-        };
+        // Initialize default categories if none exist
+        function getDefaultCategories() {
+            return {
+                'Paycheck': 0,
+                'Subscriptions': 159,
+                'Transportation': 455,
+                'Car Payment': 384,
+                'Food & Hygiene': 281,
+                'Free Money': 221
+            };
+        }
 
-        let budgetBreakdown = JSON.parse(localStorage.getItem('budgetBreakdown')) || {
-            'Paycheck': [],
-            'Subscriptions': [],
-            'Transportation': [],
-            'Car Payment': [],
-            'Food & Hygiene': [],
-            'Free Money': []
-        };
+        function getDefaultCategoryList() {
+            return ['Paycheck', 'Subscriptions', 'Transportation', 'Car Payment', 'Food & Hygiene', 'Free Money'];
+        }
+
+        // Data structure
+        let categoryList = JSON.parse(localStorage.getItem('categoryList')) || getDefaultCategoryList();
+        let budgets = JSON.parse(localStorage.getItem('budgets')) || getDefaultCategories();
+
+        // Ensure all categories in list have budget entries
+        categoryList.forEach(cat => {
+            if (budgets[cat] === undefined) {
+                budgets[cat] = 0;
+            }
+        });
+
+        // Ensure breakdown exists for all categories
+        let budgetBreakdown = JSON.parse(localStorage.getItem('budgetBreakdown')) || {};
+        categoryList.forEach(cat => {
+            if (!budgetBreakdown[cat]) {
+                budgetBreakdown[cat] = [];
+            }
+        });
 
         let currentBudgetCategory = null; // Track which category is being edited
         let selectedCheckingCategory = null; // Track selected category in checking form
@@ -1262,6 +1325,179 @@
 
         // Merchant learning database
         let merchantDatabase = JSON.parse(localStorage.getItem('merchantDatabase')) || {};
+
+        // Save category list
+        function saveCategoryList() {
+            localStorage.setItem('categoryList', JSON.stringify(categoryList));
+        }
+
+        // Render category buttons dynamically
+        function renderCategoryButtons() {
+            const container = document.getElementById('category-buttons');
+            container.innerHTML = '';
+            
+            categoryList.forEach(category => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'category-btn';
+                button.dataset.category = category;
+                
+                // Add emoji for Paycheck
+                if (category === 'Paycheck') {
+                    button.textContent = '💰 ' + category;
+                } else {
+                    button.textContent = category;
+                }
+                
+                container.appendChild(button);
+            });
+
+            // Re-attach event listeners
+            attachCategoryButtonListeners();
+        }
+
+        // Render filter tabs dynamically
+        function renderFilterTabs() {
+            const container = document.getElementById('filter-tabs');
+            container.innerHTML = '';
+            
+            // Add "All" tab first
+            const allTab = document.createElement('button');
+            allTab.className = 'filter-tab active';
+            allTab.onclick = () => filterCategory('all');
+            allTab.textContent = 'All';
+            container.appendChild(allTab);
+            
+            // Add category tabs
+            categoryList.forEach(category => {
+                const tab = document.createElement('button');
+                tab.className = 'filter-tab';
+                tab.onclick = () => filterCategory(category);
+                
+                // Add emoji for Paycheck
+                if (category === 'Paycheck') {
+                    tab.textContent = '💰 ' + category;
+                } else {
+                    tab.textContent = category;
+                }
+                
+                container.appendChild(tab);
+            });
+        }
+
+        // Attach event listeners to category buttons
+        function attachCategoryButtonListeners() {
+            const categoryButtons = document.querySelectorAll('.category-btn');
+            
+            categoryButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    categoryButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    selectedCategory = this.dataset.category;
+                });
+            });
+        }
+
+        // Open Manage Categories Modal
+        function openManageCategoriesModal() {
+            renderCategoryListInModal();
+            document.getElementById('manage-categories-modal').classList.add('active');
+        }
+
+        function closeManageCategoriesModal() {
+            document.getElementById('manage-categories-modal').classList.remove('active');
+            document.getElementById('new-category-name').value = '';
+        }
+
+        // Render category list in modal
+        function renderCategoryListInModal() {
+            const container = document.getElementById('category-list');
+            container.innerHTML = '';
+            
+            categoryList.forEach(category => {
+                // Don't allow deleting Paycheck or Free Money
+                const isSystemCategory = category === 'Paycheck' || category === 'Free Money';
+                
+                const item = document.createElement('div');
+                item.className = 'category-list-item';
+                
+                const name = document.createElement('div');
+                name.className = 'category-list-item-name';
+                name.textContent = category + (isSystemCategory ? ' (System)' : '');
+                
+                item.appendChild(name);
+                
+                if (!isSystemCategory) {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-category-btn';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.onclick = () => deleteCategory(category);
+                    item.appendChild(deleteBtn);
+                }
+                
+                container.appendChild(item);
+            });
+        }
+
+        // Add new category
+        function addNewCategory() {
+            const name = document.getElementById('new-category-name').value.trim();
+            
+            if (!name) {
+                alert('Please enter a category name');
+                return;
+            }
+            
+            if (categoryList.includes(name)) {
+                alert('Category already exists');
+                return;
+            }
+            
+            categoryList.push(name);
+            budgets[name] = 0;
+            budgetBreakdown[name] = [];
+            
+            saveCategoryList();
+            saveData();
+            
+            renderCategoryListInModal();
+            renderCategoryButtons();
+            renderFilterTabs();
+            updateDisplay();
+            
+            document.getElementById('new-category-name').value = '';
+        }
+
+        // Delete category
+        function deleteCategory(category) {
+            // Check if category has transactions
+            const hasTransactions = transactions.some(t => t.category === category);
+            
+            if (hasTransactions) {
+                const confirmDelete = confirm(`Warning: There are existing transactions in the "${category}" category. If you delete this category, those transactions will become uncategorized. Continue?`);
+                if (!confirmDelete) return;
+            } else {
+                const confirmDelete = confirm(`Delete category "${category}"?`);
+                if (!confirmDelete) return;
+            }
+            
+            // Remove from category list
+            categoryList = categoryList.filter(c => c !== category);
+            
+            // Remove from budgets
+            delete budgets[category];
+            
+            // Remove from breakdown
+            delete budgetBreakdown[category];
+            
+            saveCategoryList();
+            saveData();
+            
+            renderCategoryListInModal();
+            renderCategoryButtons();
+            renderFilterTabs();
+            updateDisplay();
+        }
 
         // Bottom navigation function
         function navigateTo(view) {
@@ -1746,7 +1982,7 @@
             const spending = {};
             const deposits = {};
             
-            Object.keys(budgets).forEach(category => {
+            categoryList.forEach(category => {
                 spending[category] = 0;
                 deposits[category] = 0;
             });
@@ -1809,7 +2045,7 @@
             
             // Sum of fixed category budgets (excluding Paycheck and Free Money)
             let fixedBudgets = 0;
-            Object.keys(budgets).forEach(category => {
+            categoryList.forEach(category => {
                 if (category !== 'Paycheck' && category !== 'Free Money') {
                     fixedBudgets += budgets[category];
                 }
@@ -1837,7 +2073,7 @@
             let totalIncome = dynamicBudgets.paycheckInfo.actual;
             let html = '';
 
-            Object.keys(budgets).forEach(category => {
+            categoryList.forEach(category => {
                 // Handle Paycheck as income
                 if (category === 'Paycheck') {
                     const paycheckTotal = spending[category] || 0;
@@ -2182,7 +2418,7 @@
             const container = document.getElementById('budget-breakdown-in-modal');
             
             let html = '';
-            Object.keys(budgets).forEach(category => {
+            categoryList.forEach(category => {
                 const items = budgetBreakdown[category] || [];
                 const total = items.reduce((sum, item) => sum + item.amount, 0);
                 const isPaycheck = category === 'Paycheck';
@@ -3021,8 +3257,14 @@
         window.saveBudgetItem = saveBudgetItem;
         window.deleteBudgetItem = deleteBudgetItem;
         window.updateMonthlyBudgetDisplay = updateMonthlyBudgetDisplay;
+        window.openManageCategoriesModal = openManageCategoriesModal;
+        window.closeManageCategoriesModal = closeManageCategoriesModal;
+        window.addNewCategory = addNewCategory;
+        window.deleteCategory = deleteCategory;
 
         // Initial load
+        renderCategoryButtons();
+        renderFilterTabs();
         updateDisplay();
         updateCheckingDisplay();
     </script>
